@@ -2,7 +2,7 @@
 
 Express middleware for user-generated content to embed preview on social media platforms such as Facebook, Twitter, Discord, etc.
 
-<img src="twitter-previe.png" width="520" />
+<img src="twitter-preview.png" width="520" />
 
 # But, why?
 
