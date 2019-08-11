@@ -1,4 +1,4 @@
-# Xbox Live - UGC Express Middleware
+# UGC Express Middleware
 
 Express middleware for user-generated content to embed preview on social media platforms such as Facebook, Twitter, Discord, etc.
 
