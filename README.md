@@ -8,7 +8,7 @@ Express middleware to proxy user-generated content as screenshot and gameclip to
 
 Each user-generated content has an unique URI which is only valid for a few hours. If this URI is used and shared on an external platform (via direct link or fetched by the platform itself thanks to the meta tags) it may be cached and will become unreachable once expired; Or worse, blocked by default for security reason (CORS policies).
 
-The idea behind this proxy is to create an unique URI for each content and handle all the fetch / reload logic inside it.
+The idea behind this proxy is to create an unique URI for each content and handle all the fetch, reload and even cache logic inside it.
 
 ### Examples
 
