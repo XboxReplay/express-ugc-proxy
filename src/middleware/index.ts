@@ -1,49 +1,68 @@
 import * as express from 'express';
 import * as proxy from 'http-proxy-middleware';
 import * as XboxLiveAPI from '@xboxreplay/xboxlive-api';
-import * as HTTPStatusCodes from '../http-status-codes';
-import { isValidUUID, computeFileMetadataUri, isValidXUID } from './utils';
+import * as HTTPStatusCodes from './http-status-codes';
+import * as validations from './validations';
+import errors, { ExpressUGCProxyError } from './errors';
+import { extractErrorDetails, computeFileMetadataUri } from './utils';
 import { parse } from 'url';
 
 import {
+    fileTypes,
+    gameclipFileNames,
+    screenshotFileNames
+} from './file-definitions';
+
+import {
     MiddlewareOptions,
-    ErrorDetails,
+    XBLAuthenticateMethod,
     XBLAuthorization,
-    XBLAuthorizationGenerationMethod
+    ErrorDetails,
+    onRequestError
 } from '../..';
 
-const USER_AGENT: string = [
-    'Mozilla/5.0 (XboxReplay; ExpressUGCProxy/0.1)',
-    'AppleWebKit/537.36 (KHTML, like Gecko)',
-    'Chrome/71.0.3578.98 Safari/537.36'
-].join(' ');
+type ResolveXBLAuthorizationSuccessResponse = {
+    success: true;
+    authorization: XBLAuthorization;
+};
+
+type ResolveXBLAuthorizationFailureResponse = {
+    success: false;
+    error: ExpressUGCProxyError;
+};
+
+type ResolveXBLAuthorizationResponse =
+    | ResolveXBLAuthorizationSuccessResponse
+    | ResolveXBLAuthorizationFailureResponse;
+
+type FetchGameclipSuccessResponse = {
+    success: true;
+    metadata: XboxLiveAPI.GameclipNode;
+};
+
+type FetchScreenshotSuccessResponse = {
+    success: true;
+    metadata: XboxLiveAPI.ScreenshotNode;
+};
+
+type FetchFileFailureResponse = {
+    success: false;
+    error: ExpressUGCProxyError;
+};
+
+type FetchFileResponse =
+    | FetchGameclipSuccessResponse
+    | FetchScreenshotSuccessResponse
+    | FetchFileFailureResponse;
 
 class Middleware {
+    private authorization: XBLAuthorization | null = null;
     private readonly req: express.Request;
     private readonly res: express.Response;
     private readonly next: express.NextFunction;
-    private readonly fileTypes = ['gameclips', 'screenshots'];
-    private onRequestError: (details: ErrorDetails) => any;
-
-    // TODO: Allow cache handling logic to prevent useless refetch at each request
-    /**
-        options.cache: { // redis or whatever
-            get: userRedisInstance.get,
-            set: userRedisInstance.set,
-        }
-
-        // Redis sample / draft
-        options.cache.get('xboxreplay-gameclip-...', (err, reply) => {
-            if (err) return cb(err);
-            else if (reply === null) return cb(null, null);
-            const parse = JSON.parse(reply);
-            return reply;
-        });
-
-        options.cache.set('xboxreplay-gameclip-...', JSON.stringify({
-            uris: { mp4: '...', 'thumbnailSmall': '...', '...' }
-        }), 'EX', fileExpiration);
-    **/
+    private readonly debug: boolean;
+    private readonly redirectOnSuccess: boolean;
+    private readonly onRequestError: onRequestError;
 
     constructor(
         req: express.Request,
@@ -55,141 +74,292 @@ class Middleware {
         this.res = res;
         this.next = next;
 
-        const { onRequestError, displayErrorReason = false } = options;
+        const { debug, onRequestError, redirectOnSuccess } = options;
 
-        this.onRequestError = (details: ErrorDetails) =>
-            typeof onRequestError === 'function'
-                ? onRequestError(details, this.res, this.next)
-                : this.res
-                      .status(details.statusCode)
-                      .send(displayErrorReason ? details.reason : null);
+        this.res.setHeader('X-Powered-By', 'XboxReplay.net');
+        this.redirectOnSuccess = !!redirectOnSuccess;
+        this.debug = !!debug;
+
+        const { statusCode, reason } = ExpressUGCProxyError.details;
+
+        if (typeof onRequestError === 'function') {
+            this.onRequestError = onRequestError;
+        } else
+            this.onRequestError = (details: ErrorDetails) =>
+                this.res
+                    .status(details.statusCode || statusCode)
+                    .send(this.debug ? details.reason || reason : null);
     }
 
-    public handle = async (
-        authorization: XBLAuthorization | XBLAuthorizationGenerationMethod
-    ) => {
-        if (authorization === void 0 || authorization === null) {
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.UNAUTHORIZED,
-                reason: 'MISSING_AUTHORIZATION'
-            });
-        } else if (typeof authorization === 'function') {
-            const generateAuthorization = authorization;
-            const response = await generateAuthorization().catch(() => null);
-
-            if (response === null || typeof response !== 'object') {
-                return this.onRequestError({
-                    statusCode: HTTPStatusCodes.UNAUTHORIZED,
-                    reason: 'EMPTY_AUTHORIZATION'
-                });
-            } else authorization = response;
+    handle = async (authenticate: XBLAuthenticateMethod) => {
+        if (typeof authenticate !== 'function') {
+            return this.continue(errors.incorrectAuthenticationMethod());
         }
 
-        const {
-            type,
-            xuid,
-            scid,
-            fileId,
-            fileName // Will be used :)
-        } = this.getRequestParameters();
+        const onAuthenticate = await this.resolveXBLAuthorization(authenticate);
 
-        // TODO: Move validation outside this method
-        if (type === null)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'MISSING_TYPE_PARAMETER'
-            });
-        else if (this.fileTypes.includes(type) === false) {
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'NON_SUPPORTED_TYPE_PARAMETER'
-            });
+        if (onAuthenticate.success === false) {
+            return this.continue(onAuthenticate.error);
         }
 
-        if (xuid === null)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'MISSING_XUID_PARAMETER'
-            });
-        else if (isValidXUID(xuid) === false) {
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'INVALID_XUID_PARAMETER'
-            });
+        this.setAuthorization(onAuthenticate.authorization);
+        const parameters = this.getParameters();
+
+        if (parameters === null) {
+            return this.continue(errors.badRequest());
         }
 
-        if (scid === null)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'MISSING_SCID_PARAMETER'
-            });
-        else if (isValidUUID(scid) === false)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'INVALID_SCID_PARAMETER'
-            });
+        const onFileFetch = await this.fetchFile(
+            parameters.type,
+            parameters.xuid,
+            parameters.scid,
+            parameters.id
+        );
 
-        if (fileId === null)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'MISSING_FILE_ID_PARAMETER'
-            });
-        else if (isValidUUID(fileId) === false)
-            return this.onRequestError({
-                statusCode: HTTPStatusCodes.BAD_REQUEST,
-                reason: 'INVALID_FILE_ID_PARAMETER'
-            });
+        if (onFileFetch.success === false) {
+            return this.continue(onFileFetch.error);
+        }
 
-        // TODO: Improve
-        return XboxLiveAPI.call<
-            { screenshot: XboxLiveAPI.ScreenshotNode } & {
-                gameClip: XboxLiveAPI.GameclipNode;
-            }
-        >(computeFileMetadataUri(type, xuid, scid, fileId), authorization)
-            .then(response => {
-                const { screenshot, gameClip } = response;
+        const fileUris =
+            parameters.type === 'gameclips'
+                ? (onFileFetch.metadata as XboxLiveAPI.GameclipNode)
+                      .gameClipUris
+                : (onFileFetch.metadata as XboxLiveAPI.ScreenshotNode)
+                      .screenshotUris;
 
-                if (screenshot === void 0 && gameClip === void 0) {
-                    return this.onRequestError({
-                        statusCode: HTTPStatusCodes.NOT_FOUND,
-                        reason: 'FILE_NOT_FOUND'
-                    });
-                }
+        const { thumbnails } = onFileFetch.metadata;
 
-                // TODO: Improve + use fileName
-                const fileUri =
-                    screenshot !== void 0
-                        ? screenshot.screenshotUris[0].uri
-                        : gameClip.gameClipUris[0].uri;
+        if ((fileUris || []).length === 0) {
+            return this.continue(errors.missingFileUris());
+        } else if ((thumbnails || []).length === 0) {
+            return this.continue(errors.missingFileThumbnails());
+        }
 
-                const { protocol, host, pathname, query } = parse(fileUri);
+        const targetedFileUri = this.getFileUriByName(
+            parameters.name,
+            fileUris,
+            thumbnails
+        );
 
-                return proxy({
-                    target: `${protocol}//${host}${pathname}`,
-                    pathRewrite: () => `?${query}`,
-                    changeOrigin: true
-                })(this.req, this.res, this.next);
-            })
-            .catch((err: Error & { extra: { [key: string]: any } }) =>
-                this.onRequestError({
-                    statusCode:
-                        (err.extra && err.extra.statusCode) ||
-                        HTTPStatusCodes.INTERNAL_SERVER_ERROR,
-                    reason: (err.extra && err.extra.reason) || 'INTERNAL_ERROR'
-                })
-            );
+        if (targetedFileUri === null) {
+            return this.continue(errors.fileNameNotFound());
+        } else if (this.redirectOnSuccess === true) {
+            return this.res.redirect(302, targetedFileUri);
+        }
+
+        const { protocol, host, pathname, query } = parse(targetedFileUri);
+
+        // prettier-ignore
+        try { return this.createProxy(`${protocol}//${host}${pathname}`, query); }
+        catch (err) { return this.continue((errors.internal(err.message))); }
     };
 
-    private getRequestParameters = () => {
+    private createProxy = (target: string, query: string | null) =>
+        proxy({
+            target,
+            pathRewrite: () => (query !== null ? `?${query}` : ''),
+            changeOrigin: true
+        })(this.req, this.res, this.next);
+
+    private getParameters = () => {
         const [
             type = null,
             xuid = null,
             scid = null,
-            fileId = null,
-            fileName = null
+            id = null,
+            name = null
         ] = this.req.path.split('/').splice(1) as string[];
 
-        return { type, xuid, scid, fileId, fileName };
+        const hasInvalidParameters = [
+            validations.isValidFileType(type),
+            validations.isValidOwnerXUID(xuid),
+            validations.isValidFileScid(scid),
+            validations.isValidFileId(id),
+            validations.isValidFileNameForType(name, type)
+        ].includes(false);
+
+        if (hasInvalidParameters === true) {
+            return null;
+        }
+
+        const t = type as typeof fileTypes[number];
+        const n =
+            t === 'gameclips'
+                ? (name as typeof gameclipFileNames[number])
+                : (name as typeof screenshotFileNames[number]);
+
+        const parameters = {
+            type: t,
+            xuid: xuid as string,
+            scid: scid as string,
+            id: id as string,
+            name: n
+        };
+
+        return parameters;
+    };
+
+    private getFileUriByName = (
+        name:
+            | typeof gameclipFileNames[number]
+            | typeof screenshotFileNames[number],
+        uris: XboxLiveAPI.MediaUri[],
+        thumbnails: XboxLiveAPI.MediaThumbnail[]
+    ) => {
+        switch (name) {
+            case 'gameclip.mp4':
+            case 'screenshot.png':
+                return uris[0].uri;
+            case 'thumbnail-large.png':
+                const filterLargeThumbnail = thumbnails.filter(
+                    thumbnail => thumbnail.thumbnailType === 'Large'
+                )[0];
+
+                return filterLargeThumbnail !== void 0
+                    ? filterLargeThumbnail.uri
+                    : null;
+            case 'thumbnail-small.png':
+                const filterSmallThumbnail = thumbnails.filter(
+                    thumbnail => thumbnail.thumbnailType === 'Small'
+                )[0];
+
+                return filterSmallThumbnail !== void 0
+                    ? filterSmallThumbnail.uri
+                    : null;
+            default:
+                return null;
+        }
+    };
+
+    private setAuthorization = (authorization: XBLAuthorization) => {
+        this.authorization = authorization;
+        return this;
+    };
+
+    private resolveXBLAuthorization = (
+        authenticate: XBLAuthenticateMethod
+    ): Promise<ResolveXBLAuthorizationResponse> =>
+        new Promise(resolve => {
+            return authenticate()
+                .then(authorization =>
+                    resolve({
+                        success: true,
+                        authorization
+                    })
+                )
+                .catch(err =>
+                    resolve({
+                        success: false,
+                        error: errors.authorizationFetchFailed(err.message)
+                    })
+                );
+        });
+
+    private fetchFile = (
+        type: typeof fileTypes[number],
+        xuid: string,
+        scid: string,
+        id: string
+    ): Promise<FetchFileResponse> => {
+        if (this.authorization === null) {
+            return Promise.resolve({
+                success: false,
+                error: errors.missingAuthorization()
+            });
+        }
+
+        if (type === 'gameclips')
+            return this.fetchGameclip(
+                this.authorization,
+                { xuid, scid, id },
+                (metadata: XboxLiveAPI.GameclipNode) => ({
+                    success: true,
+                    metadata
+                }),
+                (error: ExpressUGCProxyError) => ({
+                    success: false,
+                    error
+                })
+            );
+
+        if (type === 'screenshots')
+            return this.fetchScreenshot(
+                this.authorization,
+                { xuid, scid, id },
+                (metadata: XboxLiveAPI.ScreenshotNode) => ({
+                    success: true,
+                    metadata
+                }),
+                (error: ExpressUGCProxyError) => ({
+                    success: false,
+                    error
+                })
+            );
+
+        return Promise.resolve({
+            success: false,
+            error: errors.internal()
+        });
+    };
+
+    private fetchGameclip = (
+        authorization: XBLAuthorization,
+        properties: { xuid: string; scid: string; id: string },
+        onSuccess: (
+            metadata: XboxLiveAPI.GameclipNode
+        ) => FetchGameclipSuccessResponse,
+        onError: (error: ExpressUGCProxyError) => FetchFileFailureResponse
+    ) =>
+        XboxLiveAPI.call<{ gameClip?: XboxLiveAPI.GameclipNode }>(
+            computeFileMetadataUri(
+                'gameclips',
+                properties.xuid,
+                properties.scid,
+                properties.id
+            ),
+            authorization
+        )
+            .then(response =>
+                response.gameClip === void 0
+                    ? onError(errors.fileNotFound())
+                    : onSuccess(response.gameClip)
+            )
+            .catch(() => onError(errors.fileFetchFailed()));
+
+    private fetchScreenshot = (
+        authorization: XBLAuthorization,
+        properties: { xuid: string; scid: string; id: string },
+        onSuccess: (
+            metadata: XboxLiveAPI.ScreenshotNode
+        ) => FetchScreenshotSuccessResponse,
+        onError: (error: ExpressUGCProxyError) => FetchFileFailureResponse
+    ) =>
+        XboxLiveAPI.call<{ screenshot?: XboxLiveAPI.ScreenshotNode }>(
+            computeFileMetadataUri(
+                'screenshots',
+                properties.xuid,
+                properties.scid,
+                properties.id
+            ),
+            authorization
+        )
+            .then(response =>
+                response.screenshot === void 0
+                    ? onError(errors.fileNotFound())
+                    : onSuccess(response.screenshot)
+            )
+            .catch(() => onError(errors.fileFetchFailed()));
+
+    private continue = (err: ExpressUGCProxyError) => {
+        if (this.debug) {
+            console.error(err);
+        }
+
+        return this.onRequestError(
+            extractErrorDetails(err),
+            this.res,
+            this.next
+        );
     };
 }
 
