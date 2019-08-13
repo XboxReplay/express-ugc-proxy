@@ -1,7 +1,6 @@
 import * as express from 'express';
 import * as proxy from 'http-proxy-middleware';
 import * as XboxLiveAPI from '@xboxreplay/xboxlive-api';
-import * as HTTPStatusCodes from './http-status-codes';
 import * as validations from './validations';
 import errors, { ExpressUGCProxyError } from './errors';
 import { extractErrorDetails, computeFileMetadataUri } from './utils';
@@ -151,7 +150,7 @@ class Middleware {
 
         // prettier-ignore
         try { return this.createProxy(`${protocol}//${host}${pathname}`, query); }
-        catch (err) { return this.continue((errors.internal(err.message))); }
+        catch (err) { return this.continue(errors.internal(err.message)); }
     };
 
     private createProxy = (target: string, query: string | null) =>

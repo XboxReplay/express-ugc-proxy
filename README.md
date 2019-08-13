@@ -39,10 +39,92 @@ app.listen(8888, err => {
 
 Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1adc8aa-0a31-4407-90f2-7e9b54b0347c/388f97c0-17bc-4939-a592-d43c365acc48/gameclip.mp4
 
-# URI composition
+### URI composition
 
-* Targeted type (gameclips | screenshots)
-* Owner XUID
-* File SCID
-* File ID
-* Targeted element (gameclip.mp4 | screenshot.png | thumbnail-small.png | thumbnail-large.png)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│      type     │     XUID     │     SCID     │     ID     │     name     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+* Supported types: **gameclips** | **screenshots**
+* Supported names *("gameclips" only)*: **gameclip.mp4**
+* Supported names *("screenshots" only)*: **screenshot.png**
+* Supported names *(common)*: **thumbnail-small.png** | **thumbnail-large.png**
+
+# Parameters
+
+* XBLAuthenticateMethod {Promise<{ XSTSToken: string, userHash: string }>} See below
+* options {Object?}
+    * debug {boolean?} Stdout the error and display a reason in response body
+    * onRequestError {Function?} See below
+    * redirectOnSuccess {boolean?} Skip the proxy phase and redirect to the media URI
+
+### XBLAuthenticateMethod
+This method must returns a Promise with a valid `XSTSToken` and an `userHash` which are used by the `@xboxreplay/xboxlive-api` module to fetch the targeted file. To prevent an authentication at each request wrap the `authenticate` method exposed by the `@xboxreplay/xboxlive-auth` module and its response inside a Promise and store / return its response as long it's valid.
+
+Of course an in-memory data structure store as [Redis](https://www.npmjs.com/package/ioredis) is recommended for this kind of usage.
+
+```
+let XBLAuthorization = null;
+
+const getOrResolveXBLAuthorization = () =>
+    new Promise((resolve, reject) => {
+        if (XBLAuthorization !== null) {
+            const hasExpired =
+                XBLAuthorization.expiresOn !== null &&
+                new Date(XBLAuthorization.expiresOn) <= new Date();
+
+            if (hasExpired === false) {
+                return resolve({
+                    XSTSToken: XBLAuthorization.XSTSToken,
+                    userHash: XBLAuthorization.userHash
+                });
+            }
+        }
+
+        return XboxLiveAuth.authenticate('xbl-account@domain.com', '*********')
+            .then(({ XSTSToken, userHash, expiresOn }) => {
+                XBLAuthorization = { XSTSToken, userHash, expiresOn };
+                return resolve({
+                    XSTSToken: XBLAuthorization.XSTSToken,
+                    userHash: XBLAuthorization.userHash
+                });
+            })
+            .catch(reject);
+    });
+
+app.use('/ugc-files, UGCMiddleware.handle(
+    getOrResolveXBLAuthorization
+));
+```
+
+### onRequestError
+By default if something goes wrong a HTTP status code will be returned to the client and the request will be closed. If you want to handle a custom behavior, this option is for you.
+
+```
+const onRequestError = (details, res, next) => {
+    const { statusCode, reason } = details;
+    console.info(statusCode, reason);
+    return res.redirect(302, '/my-error-page');
+};
+
+app.use('/ugc-files, UGCMiddleware.handle(
+    getOrResolveXBLAuthorization
+), { onRequestError });
+```
+
+# Proxy all the way?
+As specified upper, `redirectOnSuccess` allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want stream a media directly on your own website to prevent useless memory usage.
+
+```
+// Will be used on the website (HTML5 player for instance)
+app.use('/ugc-files, UGCMiddleware.handle(
+    getOrResolveXBLAuthorization
+), { redirectOnSuccess: true });
+
+// Will be used to populate meta tags
+app.use('/proxy-ugc-files, UGCMiddleware.handle(
+    getOrResolveXBLAuthorization
+), { redirectOnSuccess: false });
+```
