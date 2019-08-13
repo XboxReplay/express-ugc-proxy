@@ -1,3 +1,5 @@
+.gitignore
+tsconfig.json
 node_modules/
 examples/
 src/

@@ -4,6 +4,12 @@ Express middleware to proxy user-generated content as screenshot and gameclip to
 
 <img src="twitter-preview.png" width="520" />
 
+# Installation
+
+```
+npm install @xboxreplay/express-ugc-proxy
+```
+
 # But, why?
 
 Each user-generated content has an unique URI which is only valid for a few hours. If this URI is used and shared (via direct link or fetched by an external platform thanks to the meta tags) it may be cached and will become unreachable once expired. Or worse, blocked by default for security reason (CORS policies).
@@ -39,7 +45,7 @@ app.listen(8888, err => {
 
 Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1adc8aa-0a31-4407-90f2-7e9b54b0347c/388f97c0-17bc-4939-a592-d43c365acc48/gameclip.mp4
 
-### URI composition
+### Path composition
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -57,8 +63,8 @@ Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1ad
 * XBLAuthenticateMethod {Promise<{ XSTSToken: string, userHash: string }>} See below
 * options {Object?}
     * debug {boolean?} Stdout the error and display a reason in response body
-    * onRequestError {Function?} See below
     * redirectOnSuccess {boolean?} Skip the proxy phase and redirect to the media URI
+    * onRequestError {Function?} See below
 
 ### XBLAuthenticateMethod
 This method must returns a Promise with a valid `XSTSToken` and an `userHash` which are used by the `@xboxreplay/xboxlive-api` module to fetch the targeted file. To prevent an authentication at each request wrap the `authenticate` method exposed by the `@xboxreplay/xboxlive-auth` module and its response inside a Promise and store / return its response as long it's valid.
@@ -100,13 +106,12 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 ### onRequestError
-By default if something goes wrong a HTTP status code will be returned to the client and the request will be closed. If you want to handle a custom behavior, this option is for you.
+By default if something goes wrong the request will be closed and a HTTP status code will be returned to the client, including the error reason if the `debug` mode is enabled. A custom behavior is possible with this option.
 
 ```
 const onRequestError = (details, res, next) => {
     const { statusCode, reason } = details;
-    console.info(statusCode, reason);
-    return res.redirect(302, '/my-error-page');
+    return res.redirect(`/my-error-page?code=${statusCode}&reason=${reason}`);
 };
 
 app.use('/ugc-files, UGCMiddleware.handle(
@@ -115,16 +120,18 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 # Proxy all the way?
-As specified upper, `redirectOnSuccess` allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want to stream a media directly on your own website to prevent useless memory usage.
+As specified upper `redirectOnSuccess` allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want to stream a media directly from Azure servers on your own website to prevent useless memory usage.
 
 ```
-// Will be used on the website (HTML5 player for instance)
-app.use('/ugc-files, UGCMiddleware.handle(
+app.use('/redirect-ugc-files, UGCMiddleware.handle(
     getOrResolveXBLAuthorization
 ), { redirectOnSuccess: true });
 
-// Will be used to populate meta tags
-app.use('/proxy-ugc-files, UGCMiddleware.handle(
+app.use('/stream-ugc-files, UGCMiddleware.handle(
     getOrResolveXBLAuthorization
 ), { redirectOnSuccess: false });
 ```
+
+# What's next?
+* Handle cache logic
+* Allow custom file types mapping
