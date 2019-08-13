@@ -115,7 +115,7 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 # Proxy all the way?
-As specified upper, `redirectOnSuccess` allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want stream a media directly on your own website to prevent useless memory usage.
+As specified upper, `redirectOnSuccess` allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want to stream a media directly on your own website to prevent useless memory usage.
 
 ```
 // Will be used on the website (HTML5 player for instance)
