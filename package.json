@@ -1,7 +1,7 @@
 {
     "name": "@xboxreplay/express-ugc-proxy",
     "description": "Express middleware to proxy user-generated content to another host and embed them on social media platforms.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "keywords": [
         "middleware",
         "xboxreplay",
