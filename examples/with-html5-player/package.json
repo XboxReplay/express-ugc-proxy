@@ -10,8 +10,9 @@
     "scripts": {
         "build": "npm run clean && ./node_modules/.bin/tsc",
         "clean": "rm -rf ./dist",
-        "serve": "PAGE_URL=${PAGE_URL} HOST=${HOST} PORT=${PORT} node ./index.js",
+        "serve": "HOST=${HOST} PORT=${PORT} node ./index.js",
         "start": "npm run build && npm run serve",
+        "now-build": "npm run build",
         "prepublishOnly": "npm run test && npm run build",
         "test": "echo \"No tests specified\""
     },
