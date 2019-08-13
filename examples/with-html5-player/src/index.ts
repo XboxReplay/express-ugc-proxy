@@ -9,6 +9,8 @@ const localUrl = `http://${host}:${port}`;
 
 const app = express();
 
+app.enable('trust proxy');
+
 app.get('/favicon.ico', (_, res) =>
     res.redirect(301, 'https://www.xboxreplay.net/favicon.ico')
 );
