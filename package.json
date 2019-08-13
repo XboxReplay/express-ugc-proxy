@@ -25,7 +25,7 @@
         "build": "npm run clean && ./node_modules/.bin/tsc",
         "clean": "rm -rf ./dist",
         "prepublishOnly": "npm run test && npm run build",
-        "test": "echo \"No tests specified\" && exit 1"
+        "test": "echo \"No tests specified\""
     },
     "dependencies": {
         "@xboxreplay/xboxlive-api": "^2.1.1",
@@ -38,7 +38,6 @@
     "devDependencies": {
         "@types/express": "^4.17.0",
         "@types/http-proxy-middleware": "^0.19.2",
-        "@types/jest": "^24.0.15",
         "@types/node": "^12.0.10",
         "typescript": "^3.5.2"
     }
