@@ -5,28 +5,31 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta charset="utf-8" />
         <!-- Open Graph -->
+        <meta property="og:title" content="XboxReplay — Express UGC Proxy" />
         <meta property="og:site_name" content="XboxReplay — Express UGC Proxy"  />
-        <meta property="og:description" content="Express middleware to proxy user-generated content as screenshot and gameclip to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc."  />
-        <meta property="og:url" content="{PAGE_URL}"  />
+        <meta property="og:description" content="Express middleware to proxy user-generated content as screenshot and gameclip to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc." />
+        <meta property="og:url" content="{APP_DOMAIN}" />
         <meta property="og:type" content="video" />
         <meta property="og:image" content="{IMAGE_URI}" />
         <meta property="og:image:secure_url" content="{IMAGE_URI}" />
-        <meta property="og:image:width" content="754"  />
-        <meta property="og:image:height" content="424"  />
-        <meta property="og:video:url" content="{PAGE_URL}/embed"  />
-        <meta property="og:video:secure_url" content="{PAGE_URL}/embed" />
-        <meta property="og:video:type" content="text/html" />
+        <meta property="og:image:width" content="754" />
+        <meta property="og:image:height" content="424" />
+        <meta property="og:video:type" content="video/mp4" />
+        <meta property="og:video:url" content="{APP_DOMAIN}/embed" />
+        <meta property="og:video:secure_url" content="{APP_DOMAIN}/embed" />
         <meta property="og:video:width" content="754" />
         <meta property="og:video:height" content="424" />
         <!-- Twitter -->
         <!-- @see: https://developer.twitter.com/en/docs/tweets/optimize-with-cards/overview/player-card.html -->
-        <meta name="twitter:card" value="player"  />
-        <meta name="twitter:player" value="{PAGE_URL}/embed"  />
-        <meta name="twitter:player:width" value="754"  />
-        <meta name="twitter:player:height" value="424"  />
-        <meta name="twitter:site" value="xboxreplay.net" />
-        <meta name="twitter:image" value="{IMAGE_URI}"  />
-        <meta name="twitter:creator" value="XboxReplayNet" />
+        <meta name="twitter:title" content="XboxReplay — Express UGC Proxy" />
+        <meta name="twitter:description" content="Express middleware to proxy user-generated content as screenshot and gameclip to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc." />
+        <meta name="twitter:card" value="player" />
+        <meta name="twitter:site" value="@XboxReplayNet" />
+        <meta name="twitter:image" value="{APP_DOMAIN}/assets/og-image.jpg" />
+        <meta name="twitter:image:src" value="{IMAGE_URI}" />
+        <meta name="twitter:player" value="{APP_DOMAIN}/embed" />
+        <meta name="twitter:player:width" value="754" />
+        <meta name="twitter:player:height" value="424" />
         <style>
             body {
                 height: 100%; margin: 0;
@@ -56,7 +59,7 @@
     <body>
         <div id="root">
             <video id="video" width="100%" height="100%" controls poster="{IMAGE_URI_WITH_REDIRECT}">
-                <source src={VIDEO_URI_WITH_REDIRECT} type="video/mp4" />
+                <source src="{VIDEO_URI_WITH_REDIRECT}" type="video/mp4" />
             </video>
             <h1>Zeny IC playing Apex Legends™</h1>
             <hr />

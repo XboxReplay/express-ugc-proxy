@@ -1,3 +1,17 @@
 {
-
+    "name": "express-ugc-proxy-demo",
+    "public": false,
+    "version": 2,
+    "env": {
+        "XBL_EMAIL": "@xbl-email",
+        "XBL_PASSWORD": "@xbl-password"
+    },
+    "builds": [
+        { "src": "index.js", "use": "@now/node" },
+        { "src": "*.html", "use": "@now/static" },
+        { "src": "*.png", "use": "@now/static" }
+    ],
+    "routes": [
+        { "src": "/(.*)", "dest": "/index.js" }
+    ]
 }

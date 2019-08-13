@@ -60,7 +60,7 @@ class Middleware {
     private readonly res: express.Response;
     private readonly next: express.NextFunction;
     private readonly debug: boolean;
-    private readonly redirectOnSuccess: boolean;
+    private readonly redirectOnFetch: boolean;
     private readonly onRequestError: onRequestError;
 
     constructor(
@@ -73,10 +73,10 @@ class Middleware {
         this.res = res;
         this.next = next;
 
-        const { debug, onRequestError, redirectOnSuccess } = options;
+        const { debug, onRequestError, redirectOnFetch } = options;
 
         this.res.setHeader('X-Powered-By', 'XboxReplay.net');
-        this.redirectOnSuccess = !!redirectOnSuccess;
+        this.redirectOnFetch = !!redirectOnFetch;
         this.debug = !!debug;
 
         const { statusCode, reason } = ExpressUGCProxyError.details;
@@ -105,7 +105,7 @@ class Middleware {
         const parameters = this.getParameters();
 
         if (parameters === null) {
-            return this.continue(errors.badRequest());
+            return this.continue(errors.incorrectParameters());
         }
 
         const onFileFetch = await this.fetchFile(
@@ -129,7 +129,7 @@ class Middleware {
         const { thumbnails } = onFileFetch.metadata;
 
         if ((fileUris || []).length === 0) {
-            return this.continue(errors.missingFileUris());
+            return this.continue(errors.missingFileURIs());
         } else if ((thumbnails || []).length === 0) {
             return this.continue(errors.missingFileThumbnails());
         }
@@ -141,8 +141,8 @@ class Middleware {
         );
 
         if (targetedFileUri === null) {
-            return this.continue(errors.fileNameNotFound());
-        } else if (this.redirectOnSuccess === true) {
+            return this.continue(errors.mappedFileNameNotFound());
+        } else if (this.redirectOnFetch === true) {
             return this.res.redirect(302, targetedFileUri);
         }
 
@@ -150,7 +150,7 @@ class Middleware {
 
         // prettier-ignore
         try { return this.createProxy(`${protocol}//${host}${pathname}`, query); }
-        catch (err) { return this.continue(errors.internal(err.message)); }
+        catch (err) { return this.continue(errors.proxyFailed(err.message)); }
     };
 
     private createProxy = (target: string, query: string | null) =>

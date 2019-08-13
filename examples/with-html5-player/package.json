@@ -1,12 +1,28 @@
 {
     "name": "with-html5-player",
+    "version": "0.1.0",
     "private": true,
+    "main": "./index.js",
+    "author": {
+        "name": "Alexis Bize",
+        "email": "alexis.bize@gmail.com"
+    },
+    "scripts": {
+        "build": "npm run clean && ./node_modules/.bin/tsc",
+        "clean": "rm -rf ./dist",
+        "serve": "PAGE_URL=${PAGE_URL} HOST=${HOST} PORT=${PORT} node ./index.js",
+        "start": "npm run build && npm run serve",
+        "prepublishOnly": "npm run test && npm run build",
+        "test": "echo \"No tests specified\" && exit 1"
+    },
     "dependencies": {
         "@xboxreplay/express-ugc-proxy": "file:../../",
+        "@xboxreplay/xboxlive-auth": "^2.0.0",
         "express": "^4.17.1"
     },
     "devDependencies": {
         "@types/node": "^12.7.1",
-        "@types/express": "^4.17.0"
+        "@types/express": "^4.17.0",
+        "typescript": "^3.5.2"
     }
 }

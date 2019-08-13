@@ -26,13 +26,13 @@ export default {
         message = 'Something went wrong...',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) => new ExpressUGCProxyError(message, { statusCode }),
-    badRequest: (
-        message = 'Bad request',
+    incorrectParameters: (
+        message = 'Incorrect parameters specified',
         statusCode = HTTPStatusCodes.BAD_REQUEST
     ) =>
         new ExpressUGCProxyError(message, {
             statusCode,
-            reason: 'BAD_REQUEST'
+            reason: 'INCORRECT_PARAMETERS'
         }),
     incorrectAuthenticationMethod: (
         message = 'Missing or invalid authentication method',
@@ -58,6 +58,14 @@ export default {
             statusCode,
             reason: 'FILE_FETCH_FAILED'
         }),
+    proxyFailed: (
+        message = 'Could not create a proxy for the specified file',
+        statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
+    ) =>
+        new ExpressUGCProxyError(message, {
+            statusCode,
+            reason: 'PROXY_FAILED'
+        }),
     missingAuthorization: (
         message = 'Missing XBL authorization',
         statusCode = HTTPStatusCodes.UNAUTHORIZED
@@ -74,16 +82,16 @@ export default {
             statusCode,
             reason: 'FILE_NOT_FOUND'
         }),
-    fileNameNotFound: (
-        message = 'File name not found',
+    mappedFileNameNotFound: (
+        message = 'Mapped file name not found',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
         new ExpressUGCProxyError(message, {
             statusCode,
-            reason: 'FILE_NAME_NOT_FOUND'
+            reason: 'MAPPED_FILE_NAME_NOT_FOUND'
         }),
-    missingFileUris: (
-        message = 'Missing file uris',
+    missingFileURIs: (
+        message = 'Missing file URIs',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
         new ExpressUGCProxyError(message, {

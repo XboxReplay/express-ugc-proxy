@@ -1,6 +1,11 @@
 import * as express from 'express';
 
 declare namespace ExpressUGCProxy {
+    export function handle(
+        authenticate: XBLAuthenticateMethod,
+        options?: MiddlewareOptions
+    ): any;
+
     export type ErrorDetails = {
         statusCode?: number;
         reason?: string;
@@ -9,8 +14,7 @@ declare namespace ExpressUGCProxy {
     export type XBLAuthorization = {
         userHash: string;
         XSTSToken: string;
-        userXUID?: string;
-        expiresOn?: string;
+        [key: string]: any;
     };
 
     export type onRequestError = (
@@ -22,7 +26,7 @@ declare namespace ExpressUGCProxy {
     export type MiddlewareOptions = {
         debug?: boolean;
         onRequestError?: onRequestError;
-        redirectOnSuccess?: boolean;
+        redirectOnFetch?: boolean;
     };
 
     export type XBLAuthenticateMethod = () => Promise<XBLAuthorization>;

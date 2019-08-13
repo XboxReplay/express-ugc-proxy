@@ -9,4 +9,7 @@ export const handle = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction
-) => new Middleware(req, res, next, options).handle(authenticate);
+) =>
+    new Middleware(req, res, next, options)
+        .handle(authenticate)
+        .catch(err => next(err));

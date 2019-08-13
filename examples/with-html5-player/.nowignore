@@ -1,5 +1,4 @@
-.gitignore
+README.md
 tsconfig.json
 node_modules/
-examples/
-src/
+dist/
