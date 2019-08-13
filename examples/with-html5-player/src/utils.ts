@@ -22,6 +22,7 @@ export const replacePlaceholders = (data: string, appDomain: string) => {
     const mapping = {
         APP_DOMAIN: appDomain,
         IMAGE_URI: `${appDomain}/ugc-proxy/${filePath}/thumbnail-large.png`,
+        VIDEO_URI: `${appDomain}/ugc-proxy/${filePath}/gameclip.mp4`,
         IMAGE_URI_WITH_REDIRECT: `${appDomain}/ugc-redirect/${filePath}/thumbnail-large.png`,
         VIDEO_URI_WITH_REDIRECT: `${appDomain}/ugc-redirect/${filePath}/gameclip.mp4`
     };

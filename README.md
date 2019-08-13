@@ -12,7 +12,7 @@ npm install @xboxreplay/express-ugc-proxy
 
 # But, why?
 
-Each user-generated content has an unique URI which is only valid for a few hours. If this URI is used and shared (via direct link or fetched by an external platform thanks to the meta tags) it may be cached and will become unreachable once expired. Or worse, blocked by default for security reason (CORS policies).
+Each user-generated content has an unique URI which is only valid for a few hours. If this URI is used and shared (via direct link or fetched by an external platform thanks to the meta tags) it may be cached and will become unreachable once expired. Or worse, blocked by default for security reasons (CORS policies).
 
 The idea behind this proxy is to create an unique URI for each content and handle all the fetch, reload and even cache logic **(TBD)** inside it.
 

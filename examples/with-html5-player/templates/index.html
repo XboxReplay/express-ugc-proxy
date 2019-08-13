@@ -9,12 +9,28 @@
         <meta property="og:site_name" content="XboxReplay — Express UGC Proxy"  />
         <meta property="og:description" content="Express middleware to proxy user-generated content as screenshot and gameclip to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc." />
         <meta property="og:url" content="{APP_DOMAIN}" />
-        <meta property="og:type" content="video" />
+        <meta property="og:type" content="video.other" />
         <meta property="og:image" content="{IMAGE_URI}" />
         <meta property="og:image:secure_url" content="{IMAGE_URI}" />
         <meta property="og:image:width" content="754" />
         <meta property="og:image:height" content="424" />
-        <meta property="og:video:type" content="video/mp4" />
+        <!--
+            Recommended for Discord (once they fixed their CDN...):
+            <meta property="og:video:type" content="video/mp4" />
+            <meta property="og:video:url" content="{VIDEO_URI}" />
+            <meta property="og:video:secure_url" content="{VIDEO_URI}" />
+
+            May be blocked for security reasons (CORS policies):
+            <meta property="og:video:type" content="video/mp4" />
+            <meta property="og:video:url" content="{VIDEO_URI_WITH_REDIRECT}" />
+            <meta property="og:video:secure_url" content="{VIDEO_URI_WITH_REDIRECT}" />
+
+            Default case (used below) with a custom embedded player:
+            <meta property="og:video:type" content="text/html" />
+            <meta property="og:video:url" content="{APP_DOMAIN}/embed" />
+            <meta property="og:video:secure_url" content="{APP_DOMAIN}/embed" />
+        -->
+        <meta property="og:video:type" content="text/html" />
         <meta property="og:video:url" content="{APP_DOMAIN}/embed" />
         <meta property="og:video:secure_url" content="{APP_DOMAIN}/embed" />
         <meta property="og:video:width" content="754" />
