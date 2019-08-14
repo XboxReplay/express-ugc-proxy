@@ -17,7 +17,7 @@
         "test": "echo \"No tests specified\""
     },
     "dependencies": {
-        "@xboxreplay/express-ugc-proxy": "file:../",
+        "@xboxreplay/express-ugc-proxy": "^0.3.0",
         "@xboxreplay/xboxlive-auth": "^2.2.0",
         "express": "^4.17.1"
     },
