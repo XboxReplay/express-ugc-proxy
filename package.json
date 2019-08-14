@@ -29,7 +29,7 @@
     },
     "dependencies": {
         "@xboxreplay/errors": "^0.1.0",
-        "@xboxreplay/xboxlive-api": "^2.3.0",
+        "@xboxreplay/xboxlive-api": "^2.3.1",
         "express": "^4.17.1",
         "http-proxy-middleware": "^0.19.1"
     },
