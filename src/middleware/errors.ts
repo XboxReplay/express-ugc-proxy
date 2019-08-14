@@ -1,44 +1,24 @@
+import { XboxReplayError } from '@xboxreplay/errors';
 import * as HTTPStatusCodes from './http-status-codes';
-import { ErrorDetails } from '../..';
 
-export class ExpressUGCProxyError extends Error {
-    static readonly details = {
-        statusCode: HTTPStatusCodes.INTERNAL_SERVER_ERROR,
-        reason: 'INTERNAL_SERVER_ERROR'
-    };
-
-    __XboxReplay__: boolean = true;
-    extra: ErrorDetails = { ...ExpressUGCProxyError.details };
-
-    constructor(message: string = '', extra: ErrorDetails = {}) {
-        super(message);
-        Error.captureStackTrace(this, ExpressUGCProxyError);
-        this.name = 'ExpressUGCProxyError';
-        this.extra = {
-            ...this.extra,
-            ...extra
-        };
-    }
-}
-
-export default {
+const errors = {
     internal: (
         message = 'Something went wrong...',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
-    ) => new ExpressUGCProxyError(message, { statusCode }),
-    incorrectParameters: (
-        message = 'Incorrect parameters specified',
+    ) => new XboxReplayError(message, { statusCode }),
+    invalidParameters: (
+        message = 'Invalid parameters',
         statusCode = HTTPStatusCodes.BAD_REQUEST
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
-            reason: 'INCORRECT_PARAMETERS'
+            reason: 'INVALID_PARAMETERS'
         }),
-    incorrectAuthenticationMethod: (
+    invalidAuthenticationMethod: (
         message = 'Missing or invalid authentication method',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_OR_INVALID_AUTHENTICATION_METHOD'
         }),
@@ -46,7 +26,7 @@ export default {
         message = 'Could not fetch XBL authorization',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'XBL_AUTHORIZATION_FETCH_FAILED'
         }),
@@ -54,7 +34,7 @@ export default {
         message = 'Could not fetch specified file',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'FILE_FETCH_FAILED'
         }),
@@ -62,7 +42,7 @@ export default {
         message = 'Could not create a proxy for the specified file',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'PROXY_FAILED'
         }),
@@ -70,7 +50,7 @@ export default {
         message = 'Missing XBL authorization',
         statusCode = HTTPStatusCodes.UNAUTHORIZED
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_XBL_AUTHORIZATION'
         }),
@@ -78,7 +58,7 @@ export default {
         message = 'File not found',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'FILE_NOT_FOUND'
         }),
@@ -86,7 +66,7 @@ export default {
         message = 'Mapped file name not found',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'MAPPED_FILE_NAME_NOT_FOUND'
         }),
@@ -94,7 +74,7 @@ export default {
         message = 'Missing file URIs',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_FILE_URIS'
         }),
@@ -102,8 +82,10 @@ export default {
         message = 'Missing file thumbnails',
         statusCode = HTTPStatusCodes.NOT_FOUND
     ) =>
-        new ExpressUGCProxyError(message, {
+        new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_FILE_THUMBNAILS'
         })
 };
+
+export = errors;
