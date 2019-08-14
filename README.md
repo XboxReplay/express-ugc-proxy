@@ -16,7 +16,7 @@ Each user-generated content has an unique URI which is only valid for a few hour
 
 The idea behind this proxy is to create an unique URI for each content and handle all the fetch, reload and even cache logic **(TBD)** inside it.
 
-### Demo
+# Demo
 
 A live demo is available [here](https://express-ugc-proxy-demo.xboxreplay.now.sh).
 
