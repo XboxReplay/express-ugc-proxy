@@ -1,5 +1,5 @@
 import * as XboxLiveAuth from '@xboxreplay/xboxlive-auth';
-import config = require('./config');
+import * as config from './config';
 
 let XBLAuthorization: {
     userHash: string;
