@@ -1,6 +1,6 @@
 # Express UGC Proxy
 
-Express middleware to proxy user-generated content as screenshot and gameclip to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc.
+Express middleware to proxy user-generated content to your own host and embed them on social media platforms such as Facebook, Twitter, Discord, etc.
 
 <img src="twitter-preview.png" width="520" />
 
