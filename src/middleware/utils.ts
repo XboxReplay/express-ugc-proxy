@@ -5,6 +5,12 @@ export const extractErrorDetails = (err: XboxReplayError) => ({
     reason: err.details.reason
 });
 
+export const safeJSONParse = <T>(entry: any): T | null => {
+    // prettier-ignore
+    try { return JSON.parse(entry); }
+    catch (err) { return null; }
+};
+
 export const computeFileMetadataUri = (
     type: string,
     xuid: string,

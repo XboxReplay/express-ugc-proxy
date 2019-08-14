@@ -142,5 +142,5 @@ app.use('/stream-ugc-files, UGCMiddleware.handle(
 
 ### What's next?
 * Add tests 🤷
-* Handle cache logic
+* ~~Handle cache logic~~
 * ~~Allow custom file types mapping~~

@@ -85,7 +85,11 @@ const errors = {
         new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_FILE_THUMBNAILS'
-        })
+        }),
+    cacheSetFailed: (
+        message = 'Could not cache file metadata',
+        statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
+    ) => new XboxReplayError(message, { statusCode })
 };
 
 export = errors;
