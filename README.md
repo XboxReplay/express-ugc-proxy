@@ -57,7 +57,7 @@ Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1ad
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-* Supported types: **gameclips** | **screenshots**
+* Supported types: **gameclips** | **screenshots** (may be overridden, see options)
 * Supported names *("gameclips" only)*: **gameclip.mp4**
 * Supported names *("screenshots" only)*: **screenshot.png**
 * Supported names *(common)*: **thumbnail-small.png** | **thumbnail-large.png**
@@ -67,6 +67,10 @@ Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1ad
 * **XBLAuthenticateMethod** {Promise<{ XSTSToken: string, userHash: string }>} **See below**
 * options {Object?}
     * **onRequestError** {Function?} **See below**
+    * **fileTypesMapping** {Object?} *Used to override default file types*
+        * gameclips? {string?}
+        * screenshots? {string}
+            Example: { gameclips: 'clips' } Gameclips will be served from /clips/... instead of /gameclips/...
     * **debug** {boolean?} *Stdout the error and display its reason in response body*
     * **redirectOnFetch** {boolean?} *Skip the proxy phase and redirect to the media URI*
 
@@ -139,4 +143,4 @@ app.use('/stream-ugc-files, UGCMiddleware.handle(
 ### What's next?
 * Add tests 🤷
 * Handle cache logic
-* Allow custom file types mapping
+* ~~Allow custom file types mapping~~

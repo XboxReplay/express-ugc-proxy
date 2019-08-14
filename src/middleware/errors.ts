@@ -14,8 +14,8 @@ const errors = {
             statusCode,
             reason: 'INVALID_PARAMETERS'
         }),
-    invalidAuthenticationMethod: (
-        message = 'Missing or invalid authentication method',
+    invalidXBLAuthenticateMethod: (
+        message = 'Missing or invalid XBL authenticate method',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) =>
         new XboxReplayError(message, {

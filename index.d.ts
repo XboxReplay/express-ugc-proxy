@@ -17,16 +17,22 @@ declare namespace ExpressUGCProxy {
         [key: string]: any;
     };
 
-    export type onRequestError = (
+    export type OnRequestError = (
         details: ErrorDetails,
         res: express.Response,
         next: express.NextFunction
     ) => any;
 
+    export type FileTypesMapping = {
+        gameclips?: string;
+        screenshots?: string;
+    };
+
     export type MiddlewareOptions = {
         debug?: boolean;
-        onRequestError?: onRequestError;
+        onRequestError?: OnRequestError;
         redirectOnFetch?: boolean;
+        fileTypesMapping?: FileTypesMapping;
     };
 
     export type XBLAuthenticateMethod = () => Promise<XBLAuthorization>;

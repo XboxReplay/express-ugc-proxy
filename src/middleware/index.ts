@@ -2,7 +2,7 @@ import * as express from 'express';
 import * as proxy from 'http-proxy-middleware';
 import * as XboxLiveAPI from '@xboxreplay/xboxlive-api';
 import * as validations from './validations';
-import * as ExpressUGCProxyError from './errors';
+import * as errors from './errors';
 import { XboxReplayError } from '@xboxreplay/errors';
 import { extractErrorDetails, computeFileMetadataUri } from './utils';
 import { parse } from 'url';
@@ -18,7 +18,8 @@ import {
     XBLAuthenticateMethod,
     XBLAuthorization,
     ErrorDetails,
-    onRequestError
+    OnRequestError,
+    FileTypesMapping
 } from '../..';
 
 type ResolveXBLAuthorizationSuccessResponse = {
@@ -62,7 +63,8 @@ class Middleware {
     private readonly next: express.NextFunction;
     private readonly debug: boolean;
     private readonly redirectOnFetch: boolean;
-    private readonly onRequestError: onRequestError;
+    private readonly onRequestError: OnRequestError;
+    private readonly fileTypesMapping: Required<FileTypesMapping>;
 
     constructor(
         req: express.Request,
@@ -74,7 +76,29 @@ class Middleware {
         this.res = res;
         this.next = next;
 
-        const { debug, onRequestError, redirectOnFetch } = options;
+        const {
+            debug,
+            onRequestError,
+            redirectOnFetch,
+            fileTypesMapping
+        } = options;
+
+        this.fileTypesMapping = {
+            gameclips: 'gameclips',
+            screenshots: 'screenshots'
+        };
+
+        if (fileTypesMapping !== void 0) {
+            const { gameclips = '', screenshots = '' } = fileTypesMapping;
+
+            if (/^[a-z]/gi.test(gameclips) === true) {
+                this.fileTypesMapping.gameclips = gameclips;
+            }
+
+            if (/^[a-z]/gi.test(screenshots) === true) {
+                this.fileTypesMapping.screenshots = screenshots;
+            }
+        }
 
         this.res.setHeader('X-Powered-By', 'XboxReplay.net');
         this.redirectOnFetch = !!redirectOnFetch;
@@ -93,9 +117,7 @@ class Middleware {
 
     handle = async (authenticate: XBLAuthenticateMethod) => {
         if (typeof authenticate !== 'function') {
-            return this.continue(
-                ExpressUGCProxyError.invalidAuthenticationMethod()
-            );
+            return this.continue(errors.invalidXBLAuthenticateMethod());
         }
 
         const onAuthenticate = await this.resolveXBLAuthorization(authenticate);
@@ -108,7 +130,7 @@ class Middleware {
         const parameters = this.getParameters();
 
         if (parameters === null) {
-            return this.continue(ExpressUGCProxyError.invalidParameters());
+            return this.continue(errors.invalidParameters());
         }
 
         const onFileFetch = await this.fetchFile(
@@ -132,9 +154,9 @@ class Middleware {
         const { thumbnails } = onFileFetch.metadata;
 
         if ((fileUris || []).length === 0) {
-            return this.continue(ExpressUGCProxyError.missingFileURIs());
+            return this.continue(errors.missingFileURIs());
         } else if ((thumbnails || []).length === 0) {
-            return this.continue(ExpressUGCProxyError.missingFileThumbnails());
+            return this.continue(errors.missingFileThumbnails());
         }
 
         const targetedFileUri = this.getFileUriByName(
@@ -144,7 +166,7 @@ class Middleware {
         );
 
         if (targetedFileUri === null) {
-            return this.continue(ExpressUGCProxyError.mappedFileNameNotFound());
+            return this.continue(errors.mappedFileNameNotFound());
         } else if (this.redirectOnFetch === true) {
             return this.res.redirect(302, targetedFileUri);
         }
@@ -153,7 +175,7 @@ class Middleware {
 
         // prettier-ignore
         try { return this.createProxy(`${protocol}//${host}${pathname}`, query); }
-        catch (err) { return this.continue(ExpressUGCProxyError.proxyFailed(err.message)); }
+        catch (err) { return this.continue(errors.proxyFailed(err.message)); }
     };
 
     private createProxy = (target: string, query: string | null) =>
@@ -164,13 +186,24 @@ class Middleware {
         })(this.req, this.res, this.next);
 
     private getParameters = () => {
-        const [
-            type = null,
-            xuid = null,
-            scid = null,
-            id = null,
-            name = null
-        ] = this.req.path.split('/').splice(1) as string[];
+        const path = this.req.path.split('/').splice(1) as string[];
+        const [, xuid = null, scid = null, id = null, name = null] = path;
+        let [type = null] = path;
+
+        if (type !== null) {
+            const [fileTypesKeys, fileTypesValues] = [
+                Object.keys(
+                    this.fileTypesMapping
+                ) as typeof fileTypes[number][],
+                Object.values(this.fileTypesMapping) as string[]
+            ];
+
+            const mappedIndex = fileTypesValues.findIndex(t => t === type);
+
+            if (mappedIndex === -1) {
+                return null;
+            } else type = fileTypesKeys[mappedIndex];
+        }
 
         const hasInvalidParameters = [
             validations.isValidFileType(type),
@@ -252,9 +285,7 @@ class Middleware {
                 .catch(err =>
                     resolve({
                         success: false,
-                        error: ExpressUGCProxyError.authorizationFetchFailed(
-                            err.message
-                        )
+                        error: errors.authorizationFetchFailed(err.message)
                     })
                 );
         });
@@ -268,41 +299,32 @@ class Middleware {
         if (this.authorization === null) {
             return Promise.resolve({
                 success: false,
-                error: ExpressUGCProxyError.missingAuthorization()
+                error: errors.missingAuthorization()
             });
         }
+
+        const onError = (error: XboxReplayError) =>
+            ({ success: false, error } as FetchFileFailureResponse);
 
         if (type === 'gameclips')
             return this.fetchGameclip(
                 this.authorization,
                 { xuid, scid, id },
-                (metadata: XboxLiveAPI.GameclipNode) => ({
-                    success: true,
-                    metadata
-                }),
-                (error: XboxReplayError) => ({
-                    success: false,
-                    error
-                })
+                metadata => ({ success: true, metadata }),
+                onError
             );
 
         if (type === 'screenshots')
             return this.fetchScreenshot(
                 this.authorization,
                 { xuid, scid, id },
-                (metadata: XboxLiveAPI.ScreenshotNode) => ({
-                    success: true,
-                    metadata
-                }),
-                (error: XboxReplayError) => ({
-                    success: false,
-                    error
-                })
+                metadata => ({ success: true, metadata }),
+                onError
             );
 
         return Promise.resolve({
             success: false,
-            error: ExpressUGCProxyError.internal()
+            error: errors.internal()
         });
     };
 
@@ -325,10 +347,10 @@ class Middleware {
         )
             .then(response =>
                 response.gameClip === void 0
-                    ? onError(ExpressUGCProxyError.fileNotFound())
+                    ? onError(errors.fileNotFound())
                     : onSuccess(response.gameClip)
             )
-            .catch(() => onError(ExpressUGCProxyError.fileFetchFailed()));
+            .catch(() => onError(errors.fileFetchFailed()));
 
     private fetchScreenshot = (
         authorization: XBLAuthorization,
@@ -349,10 +371,10 @@ class Middleware {
         )
             .then(response =>
                 response.screenshot === void 0
-                    ? onError(ExpressUGCProxyError.fileNotFound())
+                    ? onError(errors.fileNotFound())
                     : onSuccess(response.screenshot)
             )
-            .catch(() => onError(ExpressUGCProxyError.fileFetchFailed()));
+            .catch(() => onError(errors.fileFetchFailed()));
 
     private continue = (err: XboxReplayError) => {
         if (this.debug) {

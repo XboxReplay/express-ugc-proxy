@@ -15,7 +15,11 @@ app.use(
     '/ugc-proxy',
     UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
-        redirectOnFetch: false
+        redirectOnFetch: false,
+        fileTypesMapping: {
+            screenshots: 'captures',
+            gameclips: 'clips'
+        }
     })
 );
 
@@ -23,7 +27,11 @@ app.use(
     '/ugc-redirect',
     UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
-        redirectOnFetch: true
+        redirectOnFetch: true,
+        fileTypesMapping: {
+            screenshots: 'captures',
+            gameclips: 'clips'
+        }
     })
 );
 
