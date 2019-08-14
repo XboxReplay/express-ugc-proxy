@@ -1,4 +1,4 @@
-import { demoGameclipParameters } from './config';
+import defaultParameters from '../config/default-parameters';
 import { readFile } from 'fs';
 import { join } from 'path';
 
@@ -7,7 +7,7 @@ export const readTemplateFile = (
     cb: (err: Error | null, data: any) => void
 ) => {
     readFile(
-        join(__dirname, '..', 'templates', fileName),
+        join(__dirname, '..', '..', 'templates', fileName),
         'utf-8',
         (err, data) => {
             cb(err, data);
@@ -16,7 +16,7 @@ export const readTemplateFile = (
 };
 
 export const replacePlaceholders = (data: string, appDomain: string) => {
-    const { type, xuid, scid, id } = demoGameclipParameters;
+    const { type, xuid, scid, id } = defaultParameters;
     const filePath = join(type, xuid, scid, id);
 
     const mapping = {

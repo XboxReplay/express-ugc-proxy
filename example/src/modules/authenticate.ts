@@ -1,5 +1,5 @@
 import * as XboxLiveAuth from '@xboxreplay/xboxlive-auth';
-import * as config from './config';
+import credentials from '../config/credentials';
 
 let XBLAuthorization: {
     userHash: string;
@@ -7,7 +7,7 @@ let XBLAuthorization: {
     expiresOn: string;
 } | null = null;
 
-export const getOrResolveXBLAuthorization = async () => {
+export default async () => {
     if (XBLAuthorization !== null) {
         const hasExpired =
             XBLAuthorization.expiresOn !== null &&
@@ -22,8 +22,8 @@ export const getOrResolveXBLAuthorization = async () => {
     }
 
     const authenticate = await XboxLiveAuth.authenticate(
-        config.userCredentials.email,
-        config.userCredentials.password
+        credentials.email,
+        credentials.password
     );
 
     XBLAuthorization = authenticate;

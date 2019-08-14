@@ -1,23 +1,19 @@
 import * as express from 'express';
 import * as UGCMiddleware from '@xboxreplay/express-ugc-proxy';
-import { replacePlaceholders, readTemplateFile } from './utils';
-import { getOrResolveXBLAuthorization } from './xbl-authorization';
+import { replacePlaceholders, readTemplateFile } from './modules/utils';
+import XBLAuthenticateMethod from './modules/authenticate';
+import { join } from 'path';
 
 const host = String(process.env.HOST || '127.0.0.1');
 const port = Number(process.env.PORT || 8899);
-const localUrl = `http://${host}:${port}`;
-
 const app = express();
 
 app.enable('trust proxy');
-
-app.get('/favicon.ico', (_, res) =>
-    res.redirect(301, 'https://www.xboxreplay.net/favicon.ico')
-);
+app.use('/assets', express.static(join(__dirname, '..', 'assets')));
 
 app.use(
     '/ugc-proxy',
-    UGCMiddleware.handle(getOrResolveXBLAuthorization, {
+    UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
         redirectOnFetch: false
     })
@@ -25,7 +21,7 @@ app.use(
 
 app.use(
     '/ugc-redirect',
-    UGCMiddleware.handle(getOrResolveXBLAuthorization, {
+    UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
         redirectOnFetch: true
     })
@@ -47,9 +43,13 @@ app.get('/embed', (req, res) => {
     });
 });
 
+app.get('/favicon.ico', (_, res) =>
+    res.redirect(301, 'https://www.xboxreplay.net/favicon.ico')
+);
+
 app.get('*', (_, res) => res.sendStatus(404));
 
 app.listen(port, host, err => {
     if (err) throw err;
-    else console.info(`> Listening at ${localUrl}`);
+    else console.info(`> Listening at http://${host}:${port}`);
 });

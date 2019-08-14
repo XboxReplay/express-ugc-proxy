@@ -1,6 +1,6 @@
 {
-    "name": "with-html5-player",
-    "version": "0.1.0",
+    "name": "xboxreplay-express-ugc-proxy-example",
+    "version": "0.2.0",
     "private": true,
     "main": "./index.js",
     "author": {
@@ -10,7 +10,7 @@
     "scripts": {
         "build": "npm run clean && ./node_modules/.bin/tsc",
         "clean": "rm -rf ./dist",
-        "serve": "HOST=${HOST} PORT=${PORT} node ./index.js",
+        "serve": "HOST=${HOST} PORT=${PORT} XBL_EMAIL=${XBL_EMAIL} XBL_PASSWORD=${XBL_PASSWORD} node ./index.js",
         "start": "npm run build && npm run serve",
         "now-build": "npm run build",
         "prepublishOnly": "npm run test && npm run build",
