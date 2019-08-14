@@ -20,7 +20,7 @@ The idea behind this proxy is to create an unique URI for each content and handl
 
 A live demo is available [here](https://express-ugc-proxy-demo.xboxreplay.now.sh).
 
-##### Examples
+### Examples
 
 **Important notice:** This proxy is inspired by the one used on [XboxReplay.net](https://www.xboxreplay.net/). The behavior is a bit different but performances are much better (for [reasons](https://i.redd.it/mgjvqsd2j8e31.jpg)).
 
@@ -78,7 +78,7 @@ Of course an in-memory data structure store as [Redis](https://www.npmjs.com/pac
 ```
 let XBLAuthorization = null;
 
-const getOrResolveXBLAuthorization = () =>
+const XBLAuthenticateMethod = () =>
     new Promise((resolve, reject) => {
         if (XBLAuthorization !== null) {
             const hasExpired =
@@ -105,7 +105,7 @@ const getOrResolveXBLAuthorization = () =>
     });
 
 app.use('/ugc-files, UGCMiddleware.handle(
-    getOrResolveXBLAuthorization
+    XBLAuthenticateMethod
 ));
 ```
 
@@ -119,7 +119,7 @@ const onRequestError = (details, res, next) => {
 };
 
 app.use('/ugc-files, UGCMiddleware.handle(
-    getOrResolveXBLAuthorization
+    XBLAuthenticateMethod
 ), { onRequestError });
 ```
 
@@ -128,11 +128,11 @@ As specified upper `redirectOnFetch` allows you to skip the proxy phase and redi
 
 ```
 app.use('/redirect-ugc-files, UGCMiddleware.handle(
-    getOrResolveXBLAuthorization
+    XBLAuthenticateMethod
 ), { redirectOnFetch: true });
 
 app.use('/stream-ugc-files, UGCMiddleware.handle(
-    getOrResolveXBLAuthorization
+    XBLAuthenticateMethod
 ), { redirectOnFetch: false });
 ```
 
