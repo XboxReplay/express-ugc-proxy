@@ -70,7 +70,7 @@ Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1ad
     * **fileTypesMapping** {Object?} *Used to override default file types*
         * gameclips? {string?}
         * screenshots? {string}
-            Example: { gameclips: 'clips' } Gameclips will be served from /clips/... instead of /gameclips/...
+            * Example: { gameclips: 'clips' } Gameclips will be served from /clips/... instead of /gameclips/...
     * **debug** {boolean?} *Stdout the error and display its reason in response body*
     * **redirectOnFetch** {boolean?} *Skip the proxy phase and redirect to the media URI*
 
