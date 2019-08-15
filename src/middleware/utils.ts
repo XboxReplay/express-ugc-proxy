@@ -41,7 +41,7 @@ export const hasFileExpired = (fileURI: string) => {
     const exp = (String(query.__gda__) || '').split('_')[0] || null;
 
     if (exp !== null) {
-        return new Date(Number(exp) * 1000) > new Date();
+        return new Date(Number(exp) * 1000) <= new Date();
     } else return true;
 };
 
