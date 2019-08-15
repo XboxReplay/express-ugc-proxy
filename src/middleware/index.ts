@@ -178,7 +178,10 @@ class Middleware {
                     set: (cacheKey: string, payload: any, cb: any) =>
                         cache.setter(cacheKey, payload, cb)
                 };
-            } else console.warn('Invalid cache methods supplied, skipping...');
+            } else
+                console.warn(
+                    '@xboxreplay/express-ugc-proxy | Invalid or missing cache "getter" / "setter" methods, skipping...'
+                );
         }
     }
 
