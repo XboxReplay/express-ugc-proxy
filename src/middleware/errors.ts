@@ -6,6 +6,10 @@ const errors = {
         message = 'Something went wrong...',
         statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
     ) => new XboxReplayError(message, { statusCode }),
+    badImplementation: (
+        message = 'Bad implementation, please fill an issue on http://bit.ly/xr-proxy-create-issue',
+        statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
+    ) => new XboxReplayError(message, { statusCode }),
     invalidParameters: (
         message = 'Invalid parameters',
         statusCode = HTTPStatusCodes.BAD_REQUEST
@@ -85,7 +89,11 @@ const errors = {
         new XboxReplayError(message, {
             statusCode,
             reason: 'MISSING_FILE_THUMBNAILS'
-        })
+        }),
+    cacheSetFailed: (
+        message = 'Could not cache file metadata',
+        statusCode = HTTPStatusCodes.INTERNAL_SERVER_ERROR
+    ) => new XboxReplayError(message, { statusCode })
 };
 
 export = errors;

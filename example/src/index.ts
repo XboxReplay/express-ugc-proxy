@@ -2,6 +2,7 @@ import * as express from 'express';
 import * as UGCMiddleware from '@xboxreplay/express-ugc-proxy';
 import { replacePlaceholders, readTemplateFile } from './modules/utils';
 import XBLAuthenticateMethod from './modules/authenticate';
+import { getFromStore, setToStore } from './modules/memory-store';
 import { join } from 'path';
 
 const host = String(process.env.HOST || '127.0.0.1');
@@ -12,25 +13,24 @@ app.enable('trust proxy');
 app.use('/assets', express.static(join(__dirname, '..', 'assets')));
 
 app.use(
-    '/ugc-proxy',
-    UGCMiddleware.handle(XBLAuthenticateMethod, {
-        debug: true,
-        redirectOnFetch: false,
-        fileTypesMapping: {
-            screenshots: 'captures',
-            gameclips: 'clips'
-        }
-    })
-);
-
-app.use(
     '/ugc-redirect',
     UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
         redirectOnFetch: true,
         fileTypesMapping: {
-            screenshots: 'captures',
             gameclips: 'clips'
+        },
+        cache: {
+            keySeparator: ':',
+            forceUppercase: false,
+            getter: (key, cb) => {
+                const g = getFromStore<string>(key);
+                cb(null, g);
+            },
+            setter: (key, payload, cb) => {
+                setToStore(key, payload);
+                cb(null);
+            }
         }
     })
 );
