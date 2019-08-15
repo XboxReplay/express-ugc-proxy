@@ -129,7 +129,7 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 ##### options.cache
-Available options:
+* Available options:
     * keySeparator {string?}
     * forceUppercase {boolean?}
     * getter {Function}
