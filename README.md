@@ -78,7 +78,7 @@ Then navigate to http://127.0.0.1:8888/ugc-files/gameclips/2535465515082324/d1ad
 ##### options.XBLAuthenticateMethod
 This method must returns a Promise with a valid `XSTSToken` and an `userHash` which are used by the `@xboxreplay/xboxlive-api` module to fetch the targeted file. To prevent an authentication at each request wrap the `authenticate` method exposed by the `@xboxreplay/xboxlive-auth` module and its response inside a Promise and store / return its response as long it's valid.
 
-Of course an in-memory data structure store as [Redis](https://www.npmjs.com/package/ioredis) is recommended for this kind of usage.
+Of course an in-memory data structure store as [redis](https://www.npmjs.com/package/ioredis) is recommended for this kind of usage.
 
 ```
 let XBLAuthorization = null;
@@ -129,13 +129,30 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 ##### options.cache
+Once retrieved, each file URI has a lifetime of approxymatively 1 hour. To prevent useless API calls during this period feel free to use this option with a `getter` and a `setter` method and then all the logic will be handled by the middleware itself.
+
 * Available options:
-    * keySeparator {string?}
-    * forceUppercase {boolean?}
+    * keySeparator {string?} *Default: ":"*
+    * forceUppercase {boolean?} *Default: false*
     * getter {Function}
     * setter {Function}
 
-TO BE COMPLETED. See /example/src/index.ts.
+```
+// Example with redis
+const redis = require('redis');
+const client = redis.createClient();
+
+const cache = {
+    keySeparator: ':',
+    forceUppercase: false,
+    getter: client.get(key, cb),
+    setter: client.set(key, payload, cb)
+};
+
+app.use('/ugc-files, UGCMiddleware.handle(
+    XBLAuthenticateMethod
+), { cache });
+```
 
 ### Proxy all the way?
 As specified upper `redirectOnFetch` option allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want to stream a media directly from Azure servers on your own website to prevent useless memory usage.
