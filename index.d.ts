@@ -1,5 +1,4 @@
 import * as express from 'express';
-import { fileTypes } from './src/middleware/file-definitions';
 
 declare namespace ExpressUGCProxy {
     export function handle(
