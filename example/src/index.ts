@@ -13,6 +13,29 @@ app.enable('trust proxy');
 app.use('/assets', express.static(join(__dirname, '..', 'assets')));
 
 app.use(
+    '/ugc-proxy',
+    UGCMiddleware.handle(XBLAuthenticateMethod, {
+        debug: true,
+        redirectOnFetch: false,
+        fileTypesMapping: {
+            gameclips: 'clips'
+        },
+        cache: {
+            keySeparator: ':',
+            forceUppercase: false,
+            getter: (key, cb) => {
+                const g = getFromStore<string>(key);
+                cb(null, g);
+            },
+            setter: (key, payload, cb) => {
+                setToStore(key, payload);
+                cb(null);
+            }
+        }
+    })
+);
+
+app.use(
     '/ugc-redirect',
     UGCMiddleware.handle(XBLAuthenticateMethod, {
         debug: true,
