@@ -18,7 +18,6 @@ app.use(
         debug: true,
         redirectOnFetch: true,
         fileTypesMapping: {
-            screenshots: 'captures',
             gameclips: 'clips'
         },
         cache: {
