@@ -1,4 +1,5 @@
 import * as express from 'express';
+import { fileTypes } from './src/middleware/file-definitions';
 
 declare namespace ExpressUGCProxy {
     export function handle(
@@ -45,6 +46,8 @@ declare namespace ExpressUGCProxy {
         redirectOnFetch?: boolean;
         fileTypesMapping?: FileTypesMapping;
         cache?: {
+            keySeparator?: string;
+            forceUppercase?: boolean;
             getter: CacheGetter;
             setter: CacheSetter;
         };

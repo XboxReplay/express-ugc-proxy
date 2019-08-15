@@ -9,7 +9,9 @@ import { parse } from 'url';
 import {
     extractErrorDetails,
     computeFileMetadataUri,
-    safeJSONParse
+    safeJSONParse,
+    sha1,
+    extractLangFromRequest
 } from './utils';
 
 import {
@@ -29,6 +31,14 @@ import {
     CacheSetter
 } from '../..';
 
+type Parameters = {
+    type: typeof fileTypes[number];
+    xuid: string;
+    scid: string;
+    id: string;
+    name: string;
+};
+
 type ResolveXBLAuthorizationSuccessResponse = {
     success: true;
     authorization: XBLAuthorization;
@@ -45,12 +55,12 @@ type ResolveXBLAuthorizationResponse =
 
 type FetchGameclipSuccessResponse = {
     success: true;
-    metadata: XboxLiveAPI.GameclipNode | Partial<XboxLiveAPI.GameclipNode>;
+    metadata: XboxLiveAPI.GameclipNode;
 };
 
 type FetchScreenshotSuccessResponse = {
     success: true;
-    metadata: XboxLiveAPI.ScreenshotNode | Partial<XboxLiveAPI.ScreenshotNode>;
+    metadata: XboxLiveAPI.ScreenshotNode;
 };
 
 type FetchFileFailureResponse = {
@@ -73,10 +83,14 @@ type CacheDisabled = {
     enabled: false;
 };
 
-type Cache = CacheEnabled | CacheDisabled;
+type Cache = (CacheEnabled | CacheDisabled) & {
+    keySeparator: string;
+    forceUppercase: boolean;
+};
 
 class Middleware {
     private authorization: XBLAuthorization | null = null;
+    private parameters: Parameters | null = null;
     private readonly req: express.Request;
     private readonly res: express.Response;
     private readonly next: express.NextFunction;
@@ -84,7 +98,11 @@ class Middleware {
     private readonly redirectOnFetch: boolean;
     private readonly onRequestError: OnRequestError;
     private readonly fileTypesMapping: Required<FileTypesMapping>;
-    private readonly cache: Cache = { enabled: false };
+    private readonly cache: Cache = {
+        enabled: false,
+        keySeparator: ':',
+        forceUppercase: false
+    };
 
     constructor(
         req: express.Request,
@@ -141,8 +159,17 @@ class Middleware {
                 typeof cache.setter === 'function';
 
             if (hasValidCacheMethods === true) {
+                const keySeparator =
+                    String(cache.keySeparator || '').length === 1
+                        ? String(cache.keySeparator)
+                        : ':';
+
+                const forceUppercase = cache.forceUppercase === true;
+
                 this.cache = {
                     enabled: true,
+                    keySeparator,
+                    forceUppercase,
                     get: (cacheKey: string, cb: any) =>
                         cache.getter(cacheKey, cb),
                     set: (cacheKey: string, payload: any, cb: any) =>
@@ -164,18 +191,13 @@ class Middleware {
         }
 
         this.setAuthorization(onAuthenticate.authorization);
-        const parameters = this.getParameters();
+        const parameters = this.extractParameters();
 
         if (parameters === null) {
             return this.continue(errors.invalidParameters());
-        }
+        } else this.setParameters(parameters);
 
-        const onFileMetadataFetch = await this.fetchFileMetadata(
-            parameters.type,
-            parameters.xuid,
-            parameters.scid,
-            parameters.id
-        );
+        const onFileMetadataFetch = await this.fetchFileMetadata();
 
         if (onFileMetadataFetch.success === false) {
             return this.continue(onFileMetadataFetch.error);
@@ -208,15 +230,9 @@ class Middleware {
 
         if (this.cache.enabled === true) {
             await this.setFileMetadataToCache(
-                this.computeFileMetadataCacheKey(
-                    this.req.headers['accept-language'] || 'unknown', // TODO
-                    parameters.type,
-                    parameters.xuid,
-                    parameters.scid,
-                    parameters.id
-                ),
+                this.computeFileMetadataCacheKey(),
                 onFileMetadataFetch.metadata
-            );
+            ).catch(console.error);
         }
 
         if (this.redirectOnFetch === true) {
@@ -230,6 +246,89 @@ class Middleware {
         catch (err) { return this.continue(errors.proxyFailed(err.message)); }
     };
 
+    private getParameters = (): Parameters => {
+        if (this.parameters === null) {
+            throw errors.badImplementation();
+        } else return this.parameters;
+    };
+
+    private getFileUriByName = (
+        name:
+            | typeof gameclipFileNames[number]
+            | typeof screenshotFileNames[number],
+        uris: XboxLiveAPI.MediaUri[],
+        thumbnails: XboxLiveAPI.MediaThumbnail[]
+    ) => {
+        switch (name) {
+            case 'gameclip.mp4':
+            case 'screenshot.png':
+                return uris[0].uri;
+            case 'thumbnail-large.png':
+                const filterLargeThumbnail = thumbnails.filter(
+                    thumbnail => thumbnail.thumbnailType === 'Large'
+                )[0];
+
+                return filterLargeThumbnail !== void 0
+                    ? filterLargeThumbnail.uri
+                    : null;
+            case 'thumbnail-small.png':
+                const filterSmallThumbnail = thumbnails.filter(
+                    thumbnail => thumbnail.thumbnailType === 'Small'
+                )[0];
+
+                return filterSmallThumbnail !== void 0
+                    ? filterSmallThumbnail.uri
+                    : null;
+            default:
+                return null;
+        }
+    };
+
+    private getFileMetadataFromCache = <T>(
+        cacheKey: string
+    ): Promise<T | null> =>
+        new Promise((resolve, reject) => {
+            if (this.cache.enabled === false) {
+                return reject(errors.badImplementation());
+            } else if (this.cache.forceUppercase === true) {
+                cacheKey = cacheKey.toUpperCase();
+            }
+
+            this.cache.get(cacheKey, (err: any, reply: any) => {
+                if (err) return resolve(null);
+                const parse = safeJSONParse<T>(reply);
+                return resolve(parse === null ? null : parse);
+            });
+        });
+
+    private setAuthorization = (authorization: XBLAuthorization) => {
+        this.authorization = authorization;
+        return this;
+    };
+
+    private setParameters = (parameters: Parameters) => {
+        this.parameters = parameters;
+        return this;
+    };
+
+    private setFileMetadataToCache = (
+        cacheKey: string,
+        metadata: XboxLiveAPI.GameclipNode | XboxLiveAPI.ScreenshotNode
+    ): Promise<void | null> =>
+        new Promise((resolve, reject) => {
+            if (this.cache.enabled === false) {
+                return reject(errors.badImplementation());
+            } else if (this.cache.forceUppercase === true) {
+                cacheKey = cacheKey.toUpperCase();
+            }
+
+            this.cache.set(cacheKey, JSON.stringify(metadata), (err: any) => {
+                return err
+                    ? reject(errors.cacheSetFailed(err.message))
+                    : resolve();
+            });
+        });
+
     private createProxy = (target: string, query: string | null) =>
         proxy({
             target,
@@ -237,7 +336,7 @@ class Middleware {
             changeOrigin: true
         })(this.req, this.res, this.next);
 
-    private getParameters = () => {
+    private extractParameters = () => {
         const path = this.req.path.split('/').splice(1) as string[];
         const [, xuid = null, scid = null, id = null, name = null] = path;
         let [type = null] = path;
@@ -286,43 +385,6 @@ class Middleware {
         return parameters;
     };
 
-    private getFileUriByName = (
-        name:
-            | typeof gameclipFileNames[number]
-            | typeof screenshotFileNames[number],
-        uris: XboxLiveAPI.MediaUri[],
-        thumbnails: XboxLiveAPI.MediaThumbnail[]
-    ) => {
-        switch (name) {
-            case 'gameclip.mp4':
-            case 'screenshot.png':
-                return uris[0].uri;
-            case 'thumbnail-large.png':
-                const filterLargeThumbnail = thumbnails.filter(
-                    thumbnail => thumbnail.thumbnailType === 'Large'
-                )[0];
-
-                return filterLargeThumbnail !== void 0
-                    ? filterLargeThumbnail.uri
-                    : null;
-            case 'thumbnail-small.png':
-                const filterSmallThumbnail = thumbnails.filter(
-                    thumbnail => thumbnail.thumbnailType === 'Small'
-                )[0];
-
-                return filterSmallThumbnail !== void 0
-                    ? filterSmallThumbnail.uri
-                    : null;
-            default:
-                return null;
-        }
-    };
-
-    private setAuthorization = (authorization: XBLAuthorization) => {
-        this.authorization = authorization;
-        return this;
-    };
-
     private resolveXBLAuthorization = (
         authenticate: XBLAuthenticateMethod
     ): Promise<ResolveXBLAuthorizationResponse> =>
@@ -342,121 +404,67 @@ class Middleware {
                 );
         });
 
-    private computeFileMetadataCacheKey = (...args: string[]) =>
-        ['xbox-replay', 'express-ugc-proxy', ...args].join(':');
-
-    private getFileMetadataFromCache = <T>(
-        cacheKey: string
-    ): Promise<T | null> =>
-        new Promise(resolve => {
-            if (this.cache.enabled === false) {
-                return resolve(null);
-            }
-
-            this.cache.get(cacheKey, (err: any, reply: any) => {
-                if (err) return resolve(null);
-                const parse = safeJSONParse<T>(reply);
-                return resolve(parse === null ? null : parse);
-            });
-        });
-
-    private setFileMetadataToCache = (
-        cacheKey: string,
-        metadata: Partial<XboxLiveAPI.GameclipNode> &
-            Partial<XboxLiveAPI.ScreenshotNode>
-    ): Promise<void | null> =>
-        new Promise((resolve, reject) => {
-            if (this.cache.enabled === false) {
-                return resolve(null);
-            }
-
-            const fileUris = metadata.gameClipUris || metadata.screenshotUris;
-            const { thumbnails } = metadata;
-
-            const hasRequiredUris =
-                (fileUris || []).length !== 0 &&
-                (thumbnails || [].length !== 0);
-
-            if (hasRequiredUris === false) {
-                return reject(errors.cacheSetFailed('Missing required URIs'));
-            }
-
-            this.cache.set(cacheKey, JSON.stringify(metadata), (err: any) => {
-                return err
-                    ? reject(errors.cacheSetFailed(err.message))
-                    : resolve();
-            });
-        });
-
-    private fetchFileMetadata = (
-        type: typeof fileTypes[number],
-        xuid: string,
-        scid: string,
-        id: string
-    ): Promise<FetchFileResponse> => {
-        if (this.authorization === null) {
-            return Promise.resolve({
-                success: false,
-                error: errors.missingAuthorization()
-            });
-        }
-
-        const onError = (error: XboxReplayError) =>
-            ({ success: false, error } as FetchFileFailureResponse);
-
-        if (type === 'gameclips')
-            return this.fetchGameclipMetadata(
-                this.authorization,
-                { xuid, scid, id },
-                metadata => ({ success: true, metadata }),
-                onError
-            );
-
-        if (type === 'screenshots')
-            return this.fetchScreenshotMetadata(
-                this.authorization,
-                { xuid, scid, id },
-                metadata => ({ success: true, metadata }),
-                onError
-            );
-
-        return Promise.resolve({
-            success: false,
-            error: errors.internal()
-        });
+    private computeFileMetadataCacheKey = () => {
+        const lang = extractLangFromRequest(this.req);
+        return [
+            'xbox-replay',
+            'express-ugc-proxy',
+            sha1([lang, ...Object.values(this.getParameters())].join('|'))
+        ].join(this.cache.keySeparator);
     };
 
-    private fetchGameclipMetadata = async (
+    private fetchFileMetadata = async (): Promise<FetchFileResponse> => {
+        if (this.authorization === null) {
+            return {
+                success: false,
+                error: errors.badImplementation()
+            };
+        }
+
+        if (this.cache.enabled === true) {
+            const cachedMetadata = await this.getFileMetadataFromCache<
+                XboxLiveAPI.GameclipNode | XboxLiveAPI.ScreenshotNode | null
+            >(this.computeFileMetadataCacheKey());
+
+            if (cachedMetadata !== null) {
+                return this.getParameters().type === 'gameclips'
+                    ? ({
+                          success: true,
+                          metadata: cachedMetadata
+                      } as FetchGameclipSuccessResponse)
+                    : ({
+                          success: true,
+                          metadata: cachedMetadata
+                      } as FetchScreenshotSuccessResponse);
+            }
+        }
+
+        return this[
+            this.getParameters().type === 'gameclips'
+                ? 'fetchGameclipMetadata'
+                : 'fetchScreenshotMetadata'
+        ](
+            this.authorization,
+            (metadata: any): any => ({
+                success: true,
+                metadata
+            }),
+            (error: XboxReplayError): FetchFileFailureResponse => ({
+                success: false,
+                error
+            })
+        );
+    };
+
+    private fetchGameclipMetadata = (
         authorization: XBLAuthorization,
-        properties: { xuid: string; scid: string; id: string },
         onSuccess: (
             metadata: XboxLiveAPI.GameclipNode
         ) => FetchGameclipSuccessResponse,
         onError: (error: XboxReplayError) => FetchFileFailureResponse
-    ) => {
-        if (this.cache.enabled === true) {
-            const cachedMetadata = await this.getFileMetadataFromCache<XboxLiveAPI.GameclipNode | null>(
-                this.computeFileMetadataCacheKey(
-                    this.req.headers['accept-language'] || 'unknown', // TODO
-                    'gameclips',
-                    properties.xuid,
-                    properties.scid,
-                    properties.id
-                )
-            );
-
-            if (cachedMetadata !== null) {
-                return onSuccess(cachedMetadata);
-            }
-        }
-
-        return XboxLiveAPI.call<{ gameClip?: XboxLiveAPI.GameclipNode }>(
-            computeFileMetadataUri(
-                'gameclips',
-                properties.xuid,
-                properties.scid,
-                properties.id
-            ),
+    ) =>
+        XboxLiveAPI.call<{ gameClip?: XboxLiveAPI.GameclipNode }>(
+            computeFileMetadataUri(this.getParameters()),
             authorization
         )
             .then(response =>
@@ -465,39 +473,16 @@ class Middleware {
                     : onSuccess(response.gameClip)
             )
             .catch(() => onError(errors.fileFetchFailed()));
-    };
 
-    private fetchScreenshotMetadata = async (
+    private fetchScreenshotMetadata = (
         authorization: XBLAuthorization,
-        properties: { xuid: string; scid: string; id: string },
         onSuccess: (
             metadata: XboxLiveAPI.ScreenshotNode
         ) => FetchScreenshotSuccessResponse,
         onError: (error: XboxReplayError) => FetchFileFailureResponse
-    ) => {
-        if (this.cache.enabled === true) {
-            const cachedMetadata = await this.getFileMetadataFromCache<XboxLiveAPI.ScreenshotNode | null>(
-                this.computeFileMetadataCacheKey(
-                    this.req.headers['accept-language'] || 'unknown', // TODO
-                    'screenshots',
-                    properties.xuid,
-                    properties.scid,
-                    properties.id
-                )
-            );
-
-            if (cachedMetadata !== null) {
-                return onSuccess(cachedMetadata);
-            }
-        }
-
-        return XboxLiveAPI.call<{ screenshot?: XboxLiveAPI.ScreenshotNode }>(
-            computeFileMetadataUri(
-                'screenshots',
-                properties.xuid,
-                properties.scid,
-                properties.id
-            ),
+    ) =>
+        XboxLiveAPI.call<{ screenshot?: XboxLiveAPI.ScreenshotNode }>(
+            computeFileMetadataUri(this.getParameters()),
             authorization
         )
             .then(response =>
@@ -506,7 +491,6 @@ class Middleware {
                     : onSuccess(response.screenshot)
             )
             .catch(() => onError(errors.fileFetchFailed()));
-    };
 
     private continue = (err: XboxReplayError) => {
         if (this.debug) {
