@@ -128,7 +128,7 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ), { onRequestError });
 ```
 
-### options.cache
+##### options.cache
 Available options:
     * keySeparator {string?}
     * forceUppercase {boolean?}
