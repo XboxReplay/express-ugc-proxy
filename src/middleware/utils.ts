@@ -1,12 +1,7 @@
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { XboxReplayError } from '@xboxreplay/errors';
-
-import {
-    fileTypes,
-    gameclipFileNames,
-    screenshotFileNames
-} from './file-definitions';
+import { fileTypes } from './file-definitions';
 import { parse } from 'url';
 
 export const extractErrorDetails = (err: XboxReplayError) => ({
