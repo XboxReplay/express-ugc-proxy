@@ -69,10 +69,12 @@ type FetchFileFailureResponse = {
     error: XboxReplayError;
 };
 
-type FetchFileResponse =
+type FetchFileResponse = (
     | FetchGameclipSuccessResponse
     | FetchScreenshotSuccessResponse
-    | FetchFileFailureResponse;
+    | FetchFileFailureResponse) & {
+    cached?: boolean;
+};
 
 type CacheEnabled = {
     enabled: true;
@@ -212,7 +214,9 @@ class Middleware {
             return this.continue(errors.mappedFileNameNotFound());
         }
 
-        if (this.cache.enabled === true) {
+        const fetchedFromCache = onFileMetadataFetch.cached === true;
+
+        if (this.cache.enabled === true && fetchedFromCache === false) {
             await this.setFileMetadataToCache(
                 this.computeFileMetadataCacheKey(),
                 onFileMetadataFetch.metadata
@@ -426,10 +430,16 @@ class Middleware {
                 );
 
                 if (hasFileExpired(targetedFileURI || '') === false) {
-                    // prettier-ignore
-                    return this.getParameters().type === 'gameclips'
-                        ? ({ success: true, metadata: cachedMetadata } as FetchGameclipSuccessResponse)
-                        : ({ success: true, metadata: cachedMetadata } as FetchScreenshotSuccessResponse);
+                    const m =
+                        this.getParameters().type === 'gameclips'
+                            ? (cachedMetadata as XboxLiveAPI.GameclipNode)
+                            : (cachedMetadata as XboxLiveAPI.ScreenshotNode);
+
+                    return {
+                        success: true,
+                        cached: true,
+                        metadata: m
+                    } as FetchFileResponse;
                 }
             }
         }
@@ -440,7 +450,7 @@ class Middleware {
                 : 'fetchScreenshotMetadata'
         ](
             this.authorization,
-            (metadata: any): any => ({
+            (metadata: any): FetchFileResponse => ({
                 success: true,
                 metadata
             }),
@@ -453,9 +463,7 @@ class Middleware {
 
     private fetchGameclipMetadata = (
         authorization: XBLAuthorization,
-        onSuccess: (
-            metadata: XboxLiveAPI.GameclipNode
-        ) => FetchGameclipSuccessResponse,
+        onSuccess: (metadata: XboxLiveAPI.GameclipNode) => FetchFileResponse,
         onError: (error: XboxReplayError) => FetchFileFailureResponse
     ) =>
         XboxLiveAPI.call<{ gameClip?: XboxLiveAPI.GameclipNode }>(
@@ -471,9 +479,7 @@ class Middleware {
 
     private fetchScreenshotMetadata = (
         authorization: XBLAuthorization,
-        onSuccess: (
-            metadata: XboxLiveAPI.ScreenshotNode
-        ) => FetchScreenshotSuccessResponse,
+        onSuccess: (metadata: XboxLiveAPI.ScreenshotNode) => FetchFileResponse,
         onError: (error: XboxReplayError) => FetchFileFailureResponse
     ) =>
         XboxLiveAPI.call<{ screenshot?: XboxLiveAPI.ScreenshotNode }>(

@@ -31,13 +31,13 @@ declare namespace ExpressUGCProxy {
 
     export type CacheGetter = (
         key: string,
-        cb: (err: any, reply: any) => any
+        cb: (err: any, reply: string | null) => any
     ) => any;
 
     export type CacheSetter = (
         key: string,
         payload: string,
-        cb: (err: any, reply: any) => any
+        cb: (err: any) => any
     ) => any;
 
     export type MiddlewareOptions = {
