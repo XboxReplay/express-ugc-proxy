@@ -1,13 +1,13 @@
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { XboxReplayError } from '@xboxreplay/errors';
-import { GameclipNode, ScreenshotNode } from '@xboxreplay/xboxlive-api';
 
 import {
     fileTypes,
     gameclipFileNames,
     screenshotFileNames
 } from './file-definitions';
+import { parse } from 'url';
 
 export const extractErrorDetails = (err: XboxReplayError) => ({
     statusCode: err.details.statusCode,
@@ -34,6 +34,15 @@ export const extractLangFromRequest = (req: Request) => {
     }
 
     return defaultValue;
+};
+
+export const hasFileExpired = (fileURI: string) => {
+    const { query } = parse(fileURI, true);
+    const exp = (String(query.__gda__) || '').split('_')[0] || null;
+
+    if (exp !== null) {
+        return new Date(Number(exp) * 1000) > new Date();
+    } else return true;
 };
 
 export const computeFileMetadataUri = (parameters: {

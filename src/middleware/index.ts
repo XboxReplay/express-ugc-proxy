@@ -7,11 +7,12 @@ import { XboxReplayError } from '@xboxreplay/errors';
 import { parse } from 'url';
 
 import {
+    sha1,
     extractErrorDetails,
     computeFileMetadataUri,
     safeJSONParse,
-    sha1,
-    extractLangFromRequest
+    extractLangFromRequest,
+    hasFileExpired
 } from './utils';
 
 import {
@@ -203,28 +204,11 @@ class Middleware {
             return this.continue(onFileMetadataFetch.error);
         }
 
-        const fileUris =
-            parameters.type === 'gameclips'
-                ? (onFileMetadataFetch.metadata as XboxLiveAPI.GameclipNode)
-                      .gameClipUris
-                : (onFileMetadataFetch.metadata as XboxLiveAPI.ScreenshotNode)
-                      .screenshotUris;
-
+        const fileUris = this.extractFileURIs(onFileMetadataFetch.metadata);
         const { thumbnails } = onFileMetadataFetch.metadata;
+        const targetedFileURI = this.getFileURIByName(fileUris, thumbnails);
 
-        if (fileUris === void 0 || (fileUris || []).length === 0) {
-            return this.continue(errors.missingFileURIs());
-        } else if (thumbnails === void 0 || (thumbnails || []).length === 0) {
-            return this.continue(errors.missingFileThumbnails());
-        }
-
-        const targetedFileUri = this.getFileUriByName(
-            parameters.name,
-            fileUris,
-            thumbnails
-        );
-
-        if (targetedFileUri === null) {
+        if (targetedFileURI === null) {
             return this.continue(errors.mappedFileNameNotFound());
         }
 
@@ -236,10 +220,10 @@ class Middleware {
         }
 
         if (this.redirectOnFetch === true) {
-            return this.res.redirect(302, targetedFileUri);
+            return this.res.redirect(302, targetedFileURI);
         }
 
-        const { protocol, host, pathname, query } = parse(targetedFileUri);
+        const { protocol, host, pathname, query } = parse(targetedFileURI);
 
         // prettier-ignore
         try { return this.createProxy(`${protocol}//${host}${pathname}`, query); }
@@ -252,17 +236,18 @@ class Middleware {
         } else return this.parameters;
     };
 
-    private getFileUriByName = (
-        name:
-            | typeof gameclipFileNames[number]
-            | typeof screenshotFileNames[number],
-        uris: XboxLiveAPI.MediaUri[],
+    private getFileURIByName = (
+        URIs: XboxLiveAPI.MediaUri[],
         thumbnails: XboxLiveAPI.MediaThumbnail[]
     ) => {
-        switch (name) {
+        if ((URIs || []).length === 0 || (thumbnails || []).length === 0) {
+            return null;
+        }
+
+        switch (this.getParameters().name) {
             case 'gameclip.mp4':
             case 'screenshot.png':
-                return uris[0].uri;
+                return URIs[0].uri;
             case 'thumbnail-large.png':
                 const filterLargeThumbnail = thumbnails.filter(
                     thumbnail => thumbnail.thumbnailType === 'Large'
@@ -335,6 +320,13 @@ class Middleware {
             pathRewrite: () => (query !== null ? `?${query}` : ''),
             changeOrigin: true
         })(this.req, this.res, this.next);
+
+    private extractFileURIs = (
+        metadata: XboxLiveAPI.GameclipNode | XboxLiveAPI.ScreenshotNode
+    ) =>
+        this.getParameters().type === 'gameclips'
+            ? (metadata as XboxLiveAPI.GameclipNode).gameClipUris
+            : (metadata as XboxLiveAPI.ScreenshotNode).screenshotUris;
 
     private extractParameters = () => {
         const path = this.req.path.split('/').splice(1) as string[];
@@ -427,15 +419,18 @@ class Middleware {
             >(this.computeFileMetadataCacheKey());
 
             if (cachedMetadata !== null) {
-                return this.getParameters().type === 'gameclips'
-                    ? ({
-                          success: true,
-                          metadata: cachedMetadata
-                      } as FetchGameclipSuccessResponse)
-                    : ({
-                          success: true,
-                          metadata: cachedMetadata
-                      } as FetchScreenshotSuccessResponse);
+                const fileURIs = this.extractFileURIs(cachedMetadata);
+                const targetedFileURI = this.getFileURIByName(
+                    fileURIs,
+                    cachedMetadata.thumbnails
+                );
+
+                if (hasFileExpired(targetedFileURI || '') === false) {
+                    // prettier-ignore
+                    return this.getParameters().type === 'gameclips'
+                        ? ({ success: true, metadata: cachedMetadata } as FetchGameclipSuccessResponse)
+                        : ({ success: true, metadata: cachedMetadata } as FetchScreenshotSuccessResponse);
+                }
             }
         }
 
