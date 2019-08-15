@@ -129,13 +129,7 @@ app.use('/ugc-files, UGCMiddleware.handle(
 ```
 
 ##### options.cache
-Once retrieved, each file URI has a lifetime of approxymatively 1 hour. To prevent useless API calls during this period feel free to use this option with a `getter` and a `setter` method and then all the logic will be handled by the middleware itself.
-
-* Available options:
-    * keySeparator {string?} *Default: ":"*
-    * forceUppercase {boolean?} *Default: false*
-    * getter {Function}
-    * setter {Function}
+Once retrieved each file URI has a lifetime of approxymatively 1 hour. To prevent useless API calls during this period specify a `getter` and a `setter` method and let all the logic behind to be handled by the middleware itself.
 
 ```
 // Example with redis
@@ -153,6 +147,12 @@ app.use('/ugc-files, UGCMiddleware.handle(
     XBLAuthenticateMethod
 ), { cache });
 ```
+
+* Available options:
+    * keySeparator {string?} *Default: ":"*
+    * forceUppercase {boolean?} *Default: false*
+    * getter {Function}
+    * setter {Function}
 
 ### Proxy all the way?
 As specified upper `redirectOnFetch` option allows you to skip the proxy phase and redirect to the media URI. This case is recommended if you want to stream a media directly from Azure servers on your own website to prevent useless memory usage.
